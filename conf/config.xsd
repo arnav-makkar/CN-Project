@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://sip.softphone.net"
+           xmlns="http://sip.softphone.net"
+           elementFormDefault="qualified">
+
+
+
+  <!-- Simple Types -->
+
+
+  <xs:simpleType name="portType">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="0"/>
+      <xs:maxInclusive value="65535"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="mediaModeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="none"/>
+      <xs:enumeration value="captureAndPlayback"/>
+      <xs:enumeration value="echo"/>
+      <xs:enumeration value="file"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Complex Types -->
+
+  <xs:complexType name="configType">
+    <xs:sequence>
+      <xs:element name="ipAddress" type="xs:string"/>
+      <xs:element name="userPart" type="xs:string"/>
+      <xs:element name="domain" type="xs:string"/>
+      <xs:element name="password" type="xs:string"/>
+      <xs:element name="outboundProxy" type="xs:string"/>
+      <xs:element name="sipPort" type="portType"/>
+      <xs:element name="rtpPort" type="portType"/>
+      <xs:element name="authorizationUsername" type="xs:string"/>
+      <xs:element name="mediaMode" type="mediaModeType"/>
+      <xs:element name="mediaDebug" type="xs:boolean"/>
+      <xs:element name="mediaFile" type="xs:string"/>
+      <xs:element name="enableSRTP" type="xs:boolean"/>
+      <xs:element name="enableTLS" type="xs:boolean"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Root Element -->
+
+  <xs:element name="config" type="configType"/>
+
+</xs:schema>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<config xmlns="http://sip.softphone.net"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://sip.softphone.net config.xsd">
+  <ipAddress>192.168.1.197</ipAddress>
+  <userPart>bob</userPart>
+  <domain>local</domain>
+  <password>password</password>
+  <outboundProxy></outboundProxy>
+  <sipPort>5061</sipPort>
+  <rtpPort>40002</rtpPort>
+  <authorizationUsername></authorizationUsername>
+  <mediaMode>captureAndPlayback</mediaMode>
+  <mediaDebug>false</mediaDebug>
+  <mediaFile></mediaFile>
+  <enableSRTP>false</enableSRTP>
+  <enableTLS>false</enableTLS>
+</config>
+
