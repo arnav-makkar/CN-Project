@@ -221,6 +221,43 @@
             margin: 2rem 0;
         }
 
+        .image-gallery-stacked {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .image-item-stacked {
+            width: 60%;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .image-item-stacked:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-item-stacked img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-item-stacked .image-caption {
+            padding: 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            text-align: center;
+            background: var(--bg-secondary);
+        }
+
         .image-item {
             background: var(--bg-tertiary);
             border-radius: 12px;
@@ -333,6 +370,10 @@
 
             .image-gallery {
                 grid-template-columns: 1fr;
+            }
+
+            .image-item-stacked {
+                width: 100%;
             }
 
             table {
@@ -643,19 +684,21 @@ java -Dsip.home=test-bob   -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependenci
                     <img src="img/messaging_example.png" alt="Messaging Example">
                     <div class="image-caption">Instant messaging interface with message history</div>
                 </div>
-                <div class="image-item">
+            </div>
+            <div class="image-gallery-stacked">
+                <div class="image-item-stacked">
                     <img src="img/wireshark_encrypted_audio.jpg" alt="Wireshark Encrypted Audio">
                     <div class="image-caption">Wireshark capture showing encrypted audio packets with SRTP protection</div>
                 </div>
-                <div class="image-item">
+                <div class="image-item-stacked">
                     <img src="img/wireshark_invite_packet.png" alt="Wireshark INVITE Packet">
                     <div class="image-caption">SIP INVITE packet capture showing call initiation protocol</div>
                 </div>
-                <div class="image-item">
+                <div class="image-item-stacked">
                     <img src="img/wireshark_unencrypted_audio.png" alt="Wireshark Unencrypted Audio">
                     <div class="image-caption">Wireshark capture displaying unencrypted RTP audio stream packets</div>
                 </div>
-                <div class="image-item">
+                <div class="image-item-stacked">
                     <img src="img/wireshark_unencrypted_message.png" alt="Wireshark Unencrypted Message">
                     <div class="image-caption">SIP MESSAGE packet capture showing unencrypted text communication</div>
                 </div>
