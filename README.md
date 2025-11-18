@@ -2,6 +2,8 @@
 
 A modern SIP softphone that layers a dark-mode GUI, live RTP analytics, basic media encryption and SIP SYN-cookie defenses on top of the upstream peers-sip stack. This document captures the idea, design, implementation details, protocol references, and the exact runbook so that the project can be evaluated or extended quickly.
 
+Video: https://www.youtube.com/watch?v=vGIOW9ouaOk
+
 ---
 
 ## Idea
