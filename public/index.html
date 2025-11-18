@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP Softphone Application - Academic Project</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #e8e8e8;
+            --text-primary: #000000;
+            --text-secondary: #333333;
+            --accent: #000000;
+            --accent-hover: #333333;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+            --border: #cccccc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .content-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            padding: 3rem 0;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+        }
+
+        section {
+            margin-bottom: 4rem;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            margin: 1.5rem 0 1rem;
+            color: var(--text-primary);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        ul, ol {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        code {
+            background: var(--bg-tertiary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: var(--accent);
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: var(--bg-tertiary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-primary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background: var(--bg-primary);
+            padding: 1rem;
+            text-align: left;
+            color: var(--accent);
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 2rem auto;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            background: var(--bg-tertiary);
+        }
+
+        .video-container video {
+            width: 100%;
+            display: block;
+            outline: none;
+            background: #000;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .video-container.playing .video-overlay {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .play-button {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            transition: transform 0.3s, background 0.3s;
+        }
+
+        .video-container:hover .play-button {
+            transform: scale(1.1);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .image-item {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .image-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-caption {
+            padding: 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            text-align: center;
+            background: var(--bg-secondary);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .badge-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .badge-error {
+            background: var(--error);
+            color: white;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-success {
+            background: var(--success);
+        }
+
+        .status-warning {
+            background: var(--warning);
+        }
+
+        .status-error {
+            background: var(--error);
+        }
+
+        .highlight-box {
+            background: var(--bg-tertiary);
+            border-left: 4px solid var(--accent);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        .command-block {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border: 1px solid var(--border);
+        }
+
+        .command-block code {
+            color: var(--text-primary);
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            section {
+                padding: 1.5rem;
+            }
+
+            .image-gallery {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            th, td {
+                padding: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>SIP Softphone Application</h1>
+            <p>A modern SIP softphone that layers a dark-mode GUI, live RTP analytics, basic media encryption and SIP SYN-cookie defenses on top of the upstream peers-sip stack. This document captures the idea, design, implementation details, protocol references, and the exact runbook so that the project can be evaluated or extended quickly.</p>
+        </div>
+    </header>
+
+    <div class="content-wrapper">
+        <section id="idea">
+            <h2>Idea</h2>
+            <ul>
+                <li><strong>Unified collaboration surface:</strong> Blend voice, chat, attachments, and call analytics into one window so operators can escalate conversations without swapping tools.</li>
+                <li><strong>Operational insight by default:</strong> Surface packet loss, jitter, latency and duration directly in the UI so network degradations are obvious to end users and NOC teams.</li>
+                <li><strong>Secure-by-default posture:</strong> Add SRTP helpers, GUI toggles for encryption, and a SIP SYN-cookie handshake to make it harder for spoofed INVITEs to exhaust sockets.</li>
+                <li><strong>Leverage proven foundations:</strong> Reuse peers-sip transports, transactions, SDP, RTP and protocol compliance while focusing effort on GUI, analytics and security improvements.</li>
+            </ul>
+        </section>
+
+        <section id="design">
+            <h2>Design</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Key Components</th>
+                        <th>Responsibilities</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>GUI (<code>sip-gui</code>)</td>
+                        <td><code>MainFrame</code>, <code>ChatPanel</code>, <code>CallStatisticsPanel</code>, <code>DarkTheme</code></td>
+                        <td>Modern dialer, mute/hangup controls, chat with attachments, live metric cards, split-pane layout.</td>
+                    </tr>
+                    <tr>
+                        <td>Media/Analytics (<code>sip-lib</code>)</td>
+                        <td><code>MediaManager</code>, <code>RtpSession</code>, <code>RtpStatistics</code>, <code>SrtpCrypto</code></td>
+                        <td>Capture/playback, RTP session lifecycle, SRTP hooks, packet/jitter/loss tracking.</td>
+                    </tr>
+                    <tr>
+                        <td>Security</td>
+                        <td><code>InviteHandler</code>, <code>SrtpCrypto</code>, <code>Config</code> flags</td>
+                        <td>SIP SYN-cookie handshake, optional SRTP payload encryption, simple toggles exposed in config.</td>
+                    </tr>
+                    <tr>
+                        <td>Core SIP Stack</td>
+                        <td>peers-sip (transactions, dialogs, transport, SDP)</td>
+                        <td>Standards-compliant REGISTER/INVITE/BYE/etc., offer/answer, DTMF, NAT helpers.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="highlight-box">
+                <p><strong>Design priorities</strong> drawn from <code>@README_IMPROVEMENTS copy.md</code>:</p>
+                <ul>
+                    <li><strong>Network analytics pipeline</strong> polls shared <code>RtpStatistics</code> every second and paints color-coded indicators.</li>
+                    <li><strong>Encryption controls</strong> rely on <code>SrtpCrypto</code> (AES-CTR + HMAC-SHA1) and can flip per session once key material is shared.</li>
+                    <li><strong>SIP SYN-cookie defense</strong> issues <code>X-SIP-Set-Cookie</code> challenges before allocating dialogs, mirroring TCP SYN cookies.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="implementation">
+            <h2>Implementation</h2>
+            
+            <h3>GUI & User Experience</h3>
+            <p>DarkTheme-based Swing components deliver the dialer, call controls, registration state, chat canvas, and statistics panel in a single split pane. <code>MainFrameState</code> transitions ensure appropriate controls (Call, Pickup, Hangup, Mute) are exposed per phase. Chat attachments up to 1 MB are base64-encoded into SIP <code>MESSAGE</code> payloads and shown inline.</p>
+
+            <h3>Network Analytics</h3>
+            <p><code>sip.rtp.RtpStatistics</code> (atomic counters) records packets sent/received, loss, jitter, latency, and call duration. <code>CallStatisticsPanel</code> maps those metrics to 🟢/🟡/🔴 thresholds (packet loss & latency) so operators can visually grade quality. Statistics are pulled once per second while a call is active and cached per <code>MediaManager</code>.</p>
+
+            <h3>Encryption (Basic SRTP)</h3>
+            <p><code>sip.rtp.SrtpCrypto</code> wraps AES-128 in counter mode with HMAC-SHA1 (80-bit tag) and IV derivation from SSRC + sequence number. The config flag <code>&lt;enableSRTP&gt;true&lt;/enableSRTP&gt;</code> turns on payload protection and auth tagging once both peers share the master key/salt (currently pre-shared; no signaling exchange).</p>
+
+            <h3>SIP SYN-Cookie Handshake</h3>
+            <p><code>InviteHandler</code> inspects incoming INVITEs. If <code>X-SIP-Cookie</code> is missing, it replies with <code>100 Trying</code> + <code>X-SIP-Set-Cookie</code> (HMAC-backed, 60s lifetime). Valid callers echo <code>X-SIP-Cookie</code>, at which point dialog creation resumes. Spoofed INVITEs fail to obtain RTP resources.</p>
+
+            <h3>Reuse of peers-sip</h3>
+            <p>Core SIP transactions, transport manager, SDP parsing, codecs, and RTP pipeline originate from peers-sip. We extend it via GUI hooks, analytics, and security toggles without rewriting protocol plumbing.</p>
+        </section>
+
+        <section id="build-run">
+            <h2>How to Build and Run</h2>
+            
+            <h3>Prerequisites</h3>
+            <ul>
+                <li>Java 8+</li>
+                <li>Maven 3.x</li>
+                <li>Microphone & speakers (or loopback audio device)</li>
+            </ul>
+
+            <h3>Build</h3>
+            <div class="command-block">
+                <pre><code># Build everything
+mvn clean install
+
+# Or just the GUI with dependencies
+mvn -pl sip-gui -am install
+
+# Output: sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
+            </div>
+
+            <h3>Run (default configuration)</h3>
+            <div class="command-block">
+                <pre><code>java -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
+            </div>
+
+            <h3>Run with custom config directory</h3>
+            <div class="command-block">
+                <pre><code>java -Dsip.home=/path/to/config \
+     -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
+            </div>
+
+            <h3>Local Alice/Bob test (see <code>RUN.md</code>)</h3>
+            <div class="command-block">
+                <pre><code># Terminal 1
+java -Dsip.home=test-alice -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar
+
+# Terminal 2
+java -Dsip.home=test-bob   -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
+            </div>
+            <p>Enter <code>sip:bob@&lt;your-ip&gt;:5061</code> in Alice's dialer, wait for ringing, then click <strong>Pickup</strong> in Bob's window.</p>
+        </section>
+
+        <section id="configuration">
+            <h2>Configuration</h2>
+            <p><code>conf/config.xml</code> (or a custom directory referenced via <code>-Dsip.home</code>) controls SIP credentials, ports, media settings, and security toggles:</p>
+            <pre><code>&lt;config&gt;
+  &lt;!-- SIP account --&gt;
+  &lt;userPart&gt;your-username&lt;/userPart&gt;
+  &lt;domain&gt;sip.provider.com&lt;/domain&gt;
+  &lt;password&gt;your-password&lt;/password&gt;
+  
+  &lt;!-- Network --&gt;
+  &lt;ipAddress&gt;192.168.1.10&lt;/ipAddress&gt;
+  &lt;sipPort&gt;5060&lt;/sipPort&gt;
+  &lt;rtpPort&gt;8000&lt;/rtpPort&gt;
+  
+  &lt;!-- Media --&gt;
+  &lt;mediaMode&gt;captureAndPlayback&lt;/mediaMode&gt;
+  &lt;mediaDebug&gt;false&lt;/mediaDebug&gt;
+  
+  &lt;!-- Security --&gt;
+  &lt;enableSRTP&gt;false&lt;/enableSRTP&gt;
+  &lt;enableTLS&gt;false&lt;/enableTLS&gt; &lt;!-- placeholder; TLS transport not yet implemented --&gt;
+&lt;/config&gt;</code></pre>
+            <p><strong>Key options:</strong></p>
+            <ul>
+                <li><code>mediaMode</code>: <code>captureAndPlayback</code>, <code>echo</code>, <code>file</code>, or <code>none</code>.</li>
+                <li><code>enableSRTP</code>: toggles SRTP payload protection (requires shared keys).</li>
+                <li><code>enableTLS</code>: reserved for future TLS transport work.</li>
+            </ul>
+        </section>
+
+        <section id="usage">
+            <h2>Usage Guide</h2>
+            <ol>
+                <li>Launch the GUI (Alice/Bob as needed).</li>
+                <li>Ensure registration succeeds (status label shows success).</li>
+                <li>Enter a SIP URI (<code>sip:bob@192.168.1.50:5061</code>) and press <strong>Call</strong>.</li>
+                <li>Watch ringing/connected states; mute/hangup controls appear automatically.</li>
+                <li>Observe live metrics in <code>CallStatisticsPanel</code> and send chat messages or attachments from the right pane.</li>
+                <li>Click <strong>Hangup</strong> to terminate the dialog.</li>
+            </ol>
+            <div class="highlight-box">
+                <p><strong>Quality indicators</strong></p>
+                <ul>
+                    <li>Packet loss: &lt;1 % 🟢, 1‑5 % 🟡, &gt;5 % 🔴.</li>
+                    <li>Latency: &lt;100 ms 🟢, 100‑200 ms 🟡, &gt;200 ms 🔴.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="structure">
+            <h2>Project Structure</h2>
+            <pre><code>CN-Project/
+├── conf/                # Shared config & schema
+├── sip-lib/             # peers-sip core + media, RTP, security extensions
+│   ├── media/           # Capture, encoders, MediaManager
+│   ├── rtp/             # RtpSession, RtpStatistics, SrtpCrypto
+│   └── core/...         # Transactions, dialogs, transport
+├── sip-gui/             # Swing application (MainFrame, ChatPanel, analytics)
+└── sip-javaxsound/      # Java Sound bridge (capture/playback)</code></pre>
+            <p>Each module is a Maven subproject; the root <code>pom.xml</code> orchestrates builds and dependency wiring.</p>
+        </section>
+
+        <section id="tools">
+            <h2>Tools & Technologies</h2>
+            <ul>
+                <li><strong>Java Swing</strong> – dark-mode GUI, chat pane, statistics dashboard.</li>
+                <li><strong>Java Sound API (<code>sip-javaxsound</code>)</strong> – microphone capture, speaker playback.</li>
+                <li><strong>BouncyCastle 1.70</strong> – cryptographic primitives for SRTP (AES-CTR, HMAC-SHA1).</li>
+                <li><strong>Maven</strong> – multi-module build, dependency management.</li>
+                <li><strong>peers-sip</strong> – upstream SIP/RTP/SDP implementation that this project extends.</li>
+            </ul>
+        </section>
+
+        <section id="protocols">
+            <h2>Protocol Reference (from <code>PROTOCOLS.md</code>)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Protocol</th>
+                        <th>RFC</th>
+                        <th>Status in peers-sip</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>SIP over UDP</td>
+                        <td>RFC 3261</td>
+                        <td><span class="badge badge-success">✅</span></td>
+                        <td>Primary signaling transport.</td>
+                    </tr>
+                    <tr>
+                        <td>RTP</td>
+                        <td>RFC 3550</td>
+                        <td><span class="badge badge-success">✅</span></td>
+                        <td>Used for audio media streams.</td>
+                    </tr>
+                    <tr>
+                        <td>G.711 (PCMU/PCMA)</td>
+                        <td>RFC 3551</td>
+                        <td><span class="badge badge-success">✅</span></td>
+                        <td>Default audio codecs.</td>
+                    </tr>
+                    <tr>
+                        <td>DTMF Events</td>
+                        <td>RFC 4733</td>
+                        <td><span class="badge badge-success">✅</span></td>
+                        <td>Telephony event payload type.</td>
+                    </tr>
+                    <tr>
+                        <td>SDP</td>
+                        <td>RFC 4566</td>
+                        <td><span class="badge badge-success">✅</span></td>
+                        <td>Offer/answer negotiation.</td>
+                    </tr>
+                    <tr>
+                        <td>SRTP</td>
+                        <td>RFC 3711</td>
+                        <td><span class="badge badge-success">✅</span> (optional)</td>
+                        <td>Implemented via <code>SrtpCrypto</code>; key exchange must be pre-arranged.</td>
+                    </tr>
+                    <tr>
+                        <td>SIP Digest Auth</td>
+                        <td>RFC 2617</td>
+                        <td><span class="badge badge-success">✅</span></td>
+                        <td>Supported by peers-sip auth stack.</td>
+                    </tr>
+                    <tr>
+                        <td>SIP SYN Cookie</td>
+                        <td>Custom</td>
+                        <td><span class="badge badge-success">✅</span></td>
+                        <td><code>X-SIP-Set-Cookie</code>/<code>X-SIP-Cookie</code> flow guards RTP allocation.</td>
+                    </tr>
+                    <tr>
+                        <td>TLS</td>
+                        <td>RFC 3261 §26</td>
+                        <td><span class="badge badge-error">❌</span></td>
+                        <td>Config placeholder exists; transport not yet implemented.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="highlight-box">
+                <p>The project references the same protocol coverage that ships with peers-sip, adding SRTP helpers and the SYN-cookie handshake as incremental improvements.</p>
+            </div>
+        </section>
+
+        <section id="demo">
+            <h2>Demo Video</h2>
+            <div class="video-container" id="videoContainer">
+                <video id="demoVideo" controls preload="metadata">
+                    <source src="./demo.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="video-overlay" id="videoOverlay">
+                    <div class="play-button">▶</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="screenshots">
+            <h2>Screenshots</h2>
+            <div class="image-gallery">
+                <div class="image-item">
+                    <img src="img/before_call.png" alt="Before Call">
+                    <div class="image-caption">Application interface before initiating a call</div>
+                </div>
+                <div class="image-item">
+                    <img src="img/calling phase.png" alt="Calling Phase">
+                    <div class="image-caption">Active call in progress with connection status</div>
+                </div>
+                <div class="image-item">
+                    <img src="img/messaging_example.png" alt="Messaging Example">
+                    <div class="image-caption">Instant messaging interface with message history</div>
+                </div>
+                <div class="image-item">
+                    <img src="img/wireshark_encrypted_audio.jpg" alt="Wireshark Encrypted Audio">
+                    <div class="image-caption">Wireshark capture showing encrypted audio packets with SRTP protection</div>
+                </div>
+                <div class="image-item">
+                    <img src="img/wireshark_invite_packet.png" alt="Wireshark INVITE Packet">
+                    <div class="image-caption">SIP INVITE packet capture showing call initiation protocol</div>
+                </div>
+                <div class="image-item">
+                    <img src="img/wireshark_unencrypted_audio.png" alt="Wireshark Unencrypted Audio">
+                    <div class="image-caption">Wireshark capture displaying unencrypted RTP audio stream packets</div>
+                </div>
+                <div class="image-item">
+                    <img src="img/wireshark_unencrypted_message.png" alt="Wireshark Unencrypted Message">
+                    <div class="image-caption">SIP MESSAGE packet capture showing unencrypted text communication</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Video play functionality
+        const videoContainer = document.getElementById('videoContainer');
+        const video = document.getElementById('demoVideo');
+        const videoOverlay = document.getElementById('videoOverlay');
+
+        // Show video controls by default
+        video.style.display = 'block';
+
+        videoContainer.addEventListener('click', function(e) {
+            // Don't interfere with video controls
+            if (e.target === video || e.target.closest('video')) {
+                return;
+            }
+            if (video.paused) {
+                video.play();
+                videoContainer.classList.add('playing');
+            } else {
+                video.pause();
+                videoContainer.classList.remove('playing');
+            }
+        });
+
+        video.addEventListener('play', function() {
+            videoContainer.classList.add('playing');
+        });
+
+        video.addEventListener('pause', function() {
+            videoContainer.classList.remove('playing');
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
