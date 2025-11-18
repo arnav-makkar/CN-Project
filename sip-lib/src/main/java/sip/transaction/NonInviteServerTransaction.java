@@ -35,15 +35,11 @@ public class NonInviteServerTransaction extends NonInviteTransaction
         super(branchId, method, timer, transportManager, transactionManager,
                 logger);
         
-        TRYING = new NonInviteServerTransactionStateTrying(getId(), this,
-                logger);
+        TRYING = new StateTrying(getId(), this, logger);
         state = TRYING;
-        PROCEEDING = new NonInviteServerTransactionStateProceeding(getId(),
-                this, logger);
-        COMPLETED = new NonInviteServerTransactionStateCompleted(getId(), this,
-                logger);
-        TERMINATED = new NonInviteServerTransactionStateTerminated(getId(),
-                this, logger);
+        PROCEEDING = new StateProceeding(getId(), this, logger);
+        COMPLETED = new StateCompleted(getId(), this, logger);
+        TERMINATED = new StateTerminated(getId(), this, logger);
         
         //this.port = port;
         this.transport = transport;
@@ -105,6 +101,116 @@ public class NonInviteServerTransaction extends NonInviteTransaction
         @Override
         public void run() {
             state.timerJFires();
+        }
+    }
+
+    // ========== Inner State Classes ==========
+    
+    abstract class NonInviteServerTransactionState extends sip.AbstractState {
+        protected NonInviteServerTransaction nonInviteServerTransaction;
+        
+        public NonInviteServerTransactionState(String id,
+                NonInviteServerTransaction nonInviteServerTransaction,
+                Logger logger) {
+            super(id, logger);
+            this.nonInviteServerTransaction = nonInviteServerTransaction;
+        }
+
+        public void received200To699() {}
+        public void received1xx() {}
+        public void receivedRequest() {}
+        public void transportError() {}
+        public void timerJFires() {}
+    }
+    
+    class StateTrying extends NonInviteServerTransactionState {
+        public StateTrying(String id, NonInviteServerTransaction nonInviteServerTransaction, Logger logger) {
+            super(id, nonInviteServerTransaction, logger);
+        }
+
+        @Override
+        public void received1xx() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.PROCEEDING;
+            nonInviteServerTransaction.setState(nextState);
+            nonInviteServerTransaction.sendLastResponse();
+        }
+        
+        @Override
+        public void received200To699() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.COMPLETED;
+            nonInviteServerTransaction.setState(nextState);
+        }
+    }
+    
+    class StateProceeding extends NonInviteServerTransactionState {
+        public StateProceeding(String id, NonInviteServerTransaction nonInviteServerTransaction, Logger logger) {
+            super(id, nonInviteServerTransaction, logger);
+        }
+
+        @Override
+        public void received1xx() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.PROCEEDING;
+            nonInviteServerTransaction.setState(nextState);
+            nonInviteServerTransaction.sendLastResponse();
+        }
+        
+        @Override
+        public void received200To699() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.COMPLETED;
+            nonInviteServerTransaction.setState(nextState);
+            nonInviteServerTransaction.sendLastResponse();
+            int timeout;
+            if (RFC3261.TRANSPORT_UDP.equals(
+                    nonInviteServerTransaction.transport)) {
+                timeout = 64 * RFC3261.TIMER_T1;
+            } else {
+                timeout = 0;
+            }
+            nonInviteServerTransaction.timer.schedule(
+                    nonInviteServerTransaction.new TimerJ(), timeout);
+        }
+        
+        @Override
+        public void transportError() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.TERMINATED;
+            nonInviteServerTransaction.setState(nextState);
+        }
+        
+        @Override
+        public void receivedRequest() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.PROCEEDING;
+            nonInviteServerTransaction.setState(nextState);
+        }
+    }
+    
+    class StateCompleted extends NonInviteServerTransactionState {
+        public StateCompleted(String id, NonInviteServerTransaction nonInviteServerTransaction, Logger logger) {
+            super(id, nonInviteServerTransaction, logger);
+        }
+
+        @Override
+        public void timerJFires() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.TERMINATED;
+            nonInviteServerTransaction.setState(nextState);
+        }
+        
+        @Override
+        public void transportError() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.TERMINATED;
+            nonInviteServerTransaction.setState(nextState);
+        }
+        
+        @Override
+        public void receivedRequest() {
+            NonInviteServerTransactionState nextState = nonInviteServerTransaction.COMPLETED;
+            nonInviteServerTransaction.setState(nextState);
+            nonInviteServerTransaction.sendLastResponse();
+        }
+    }
+    
+    class StateTerminated extends NonInviteServerTransactionState {
+        public StateTerminated(String id, NonInviteServerTransaction nonInviteServerTransaction, Logger logger) {
+            super(id, nonInviteServerTransaction, logger);
         }
     }
     

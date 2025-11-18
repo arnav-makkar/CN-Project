@@ -54,16 +54,12 @@ public class NonInviteClientTransaction extends NonInviteTransaction
         
         nbRetrans = 0;
         
-        INIT = new NonInviteClientTransactionStateInit(getId(), this, logger);
+        INIT = new StateInit(getId(), this, logger);
         state = INIT;
-        TRYING = new NonInviteClientTransactionStateTrying(getId(), this,
-                logger);
-        PROCEEDING = new NonInviteClientTransactionStateProceeding(getId(),
-                this, logger);
-        COMPLETED = new NonInviteClientTransactionStateCompleted(getId(),
-                this, logger);
-        TERMINATED = new NonInviteClientTransactionStateTerminated(getId(),
-                this, logger);
+        TRYING = new StateTrying(getId(), this, logger);
+        PROCEEDING = new StateProceeding(getId(), this, logger);
+        COMPLETED = new StateCompleted(getId(), this, logger);
+        TERMINATED = new StateTerminated(getId(), this, logger);
         
         request = sipRequest;
         this.transactionUser = transactionUser;
@@ -181,5 +177,170 @@ public class NonInviteClientTransaction extends NonInviteTransaction
             return messageSender.getContact();
         }
         return null;
+    }
+
+    // ========== Inner State Classes ==========
+    
+    abstract class NonInviteClientTransactionState extends sip.AbstractState {
+        protected NonInviteClientTransaction nonInviteClientTransaction;
+        
+        public NonInviteClientTransactionState(String id,
+                NonInviteClientTransaction nonInviteClientTransaction,
+                Logger logger) {
+            super(id, logger);
+            this.nonInviteClientTransaction = nonInviteClientTransaction;
+        }
+        
+        public void start() {}
+        public void timerEFires() {}
+        public void timerFFires() {}
+        public void transportError() {}
+        public void received1xx() {}
+        public void received200To699() {}
+        public void timerKFires() {}
+    }
+    
+    class StateInit extends NonInviteClientTransactionState {
+        public StateInit(String id, NonInviteClientTransaction nonInviteClientTransaction, Logger logger) {
+            super(id, nonInviteClientTransaction, logger);
+        }
+
+        @Override
+        public void start() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.TRYING;
+            nonInviteClientTransaction.setState(nextState);
+        }
+    }
+    
+    class StateTrying extends NonInviteClientTransactionState {
+        public StateTrying(String id, NonInviteClientTransaction nonInviteClientTransaction, Logger logger) {
+            super(id, nonInviteClientTransaction, logger);
+        }
+
+        @Override
+        public void timerEFires() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.TRYING;
+            nonInviteClientTransaction.setState(nextState);
+            long delay = (long)Math.pow(2,
+                    ++nonInviteClientTransaction.nbRetrans) * RFC3261.TIMER_T1;
+            nonInviteClientTransaction.sendRetrans(Math.min(delay, RFC3261.TIMER_T2));
+        }
+
+        @Override
+        public void timerFFires() {
+            timerFFiresOrTransportError();
+        }
+        
+        @Override
+        public void transportError() {
+            timerFFiresOrTransportError();
+        }
+        
+        private void timerFFiresOrTransportError() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.TERMINATED;
+            nonInviteClientTransaction.setState(nextState);
+            nonInviteClientTransaction.transactionUser.transactionTimeout(
+                    nonInviteClientTransaction);
+        }
+        
+        @Override
+        public void received1xx() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.PROCEEDING;
+            nonInviteClientTransaction.setState(nextState);
+            nonInviteClientTransaction.transactionUser.provResponseReceived(
+                    nonInviteClientTransaction.getLastResponse(), nonInviteClientTransaction);
+        }
+        
+        @Override
+        public void received200To699() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.COMPLETED;
+            nonInviteClientTransaction.setState(nextState);
+            SipResponse response = nonInviteClientTransaction.getLastResponse();
+            int code = response.getStatusCode();
+            if (code < RFC3261.CODE_MIN_REDIR) {
+                nonInviteClientTransaction.transactionUser.successResponseReceived(
+                        response, nonInviteClientTransaction);
+            } else {
+                nonInviteClientTransaction.transactionUser.errResponseReceived(
+                        response);
+            }
+        }
+    }
+    
+    class StateProceeding extends NonInviteClientTransactionState {
+        public StateProceeding(String id, NonInviteClientTransaction nonInviteClientTransaction, Logger logger) {
+            super(id, nonInviteClientTransaction, logger);
+        }
+
+        @Override
+        public void timerEFires() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.PROCEEDING;
+            nonInviteClientTransaction.setState(nextState);
+            ++nonInviteClientTransaction.nbRetrans;
+            nonInviteClientTransaction.sendRetrans(RFC3261.TIMER_T2);
+        }
+        
+        @Override
+        public void timerFFires() {
+            timerFFiresOrTransportError();
+        }
+        
+        @Override
+        public void transportError() {
+            timerFFiresOrTransportError();
+        }
+        
+        private void timerFFiresOrTransportError() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.TERMINATED;
+            nonInviteClientTransaction.setState(nextState);
+            nonInviteClientTransaction.transactionUser.transactionTimeout(
+                    nonInviteClientTransaction);
+        }
+        
+        @Override
+        public void received1xx() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.PROCEEDING;
+            nonInviteClientTransaction.setState(nextState);
+        }
+        
+        @Override
+        public void received200To699() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.COMPLETED;
+            nonInviteClientTransaction.setState(nextState);
+            SipResponse response = nonInviteClientTransaction.getLastResponse();
+            int code = response.getStatusCode();
+            if (code < RFC3261.CODE_MIN_REDIR) {
+                nonInviteClientTransaction.transactionUser.successResponseReceived(
+                        response, nonInviteClientTransaction);
+            } else {
+                nonInviteClientTransaction.transactionUser.errResponseReceived(
+                        response);
+            }
+        }
+    }
+    
+    class StateCompleted extends NonInviteClientTransactionState {
+        public StateCompleted(String id, NonInviteClientTransaction nonInviteClientTransaction, Logger logger) {
+            super(id, nonInviteClientTransaction, logger);
+            int delay = 0;
+            if (RFC3261.TRANSPORT_UDP.equals(
+                    nonInviteClientTransaction.transport)) {
+                delay = RFC3261.TIMER_T4;
+            }
+            nonInviteClientTransaction.timer.schedule(
+                    nonInviteClientTransaction.new TimerK(), delay);
+        }
+
+        @Override
+        public void timerKFires() {
+            NonInviteClientTransactionState nextState = nonInviteClientTransaction.TERMINATED;
+            nonInviteClientTransaction.setState(nextState);
+        }
+    }
+    
+    class StateTerminated extends NonInviteClientTransactionState {
+        public StateTerminated(String id, NonInviteClientTransaction nonInviteClientTransaction, Logger logger) {
+            super(id, nonInviteClientTransaction, logger);
+        }
     }
 }

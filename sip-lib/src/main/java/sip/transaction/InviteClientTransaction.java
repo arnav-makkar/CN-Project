@@ -57,16 +57,12 @@ public class InviteClientTransaction extends InviteTransaction
         
         nbRetrans = 0;
         
-        INIT = new InviteClientTransactionStateInit(getId(), this, logger);
+        INIT = new StateInit(getId(), this, logger);
         state = INIT;
-        CALLING = new InviteClientTransactionStateCalling(getId(), this,
-                logger);
-        PROCEEDING = new InviteClientTransactionStateProceeding(getId(), this,
-                logger);
-        COMPLETED = new InviteClientTransactionStateCompleted(getId(), this,
-                logger);
-        TERMINATED = new InviteClientTransactionStateTerminated(getId(), this,
-                logger);
+        CALLING = new StateCalling(getId(), this, logger);
+        PROCEEDING = new StateProceeding(getId(), this, logger);
+        COMPLETED = new StateCompleted(getId(), this, logger);
+        TERMINATED = new StateTerminated(getId(), this, logger);
 
         //17.1.1.2
         
@@ -229,6 +225,162 @@ public class InviteClientTransaction extends InviteTransaction
             return messageSender.getContact();
         }
         return null;
+    }
+
+    // ========== Inner State Classes ==========
+    
+    abstract class InviteClientTransactionState extends sip.AbstractState {
+        protected InviteClientTransaction inviteClientTransaction;
+        
+        public InviteClientTransactionState(String id,
+                InviteClientTransaction inviteClientTransaction, Logger logger) {
+            super(id, logger);
+            this.inviteClientTransaction = inviteClientTransaction;
+        }
+        
+        public void start() {}
+        public void timerAFires() {}
+        public void timerBFires() {}
+        public void received2xx() {}
+        public void received1xx() {}
+        public void received300To699() {}
+        public void transportError() {}
+        public void timerDFires() {}
+    }
+    
+    class StateInit extends InviteClientTransactionState {
+        public StateInit(String id, InviteClientTransaction inviteClientTransaction, Logger logger) {
+            super(id, inviteClientTransaction, logger);
+        }
+
+        @Override
+        public void start() {
+            InviteClientTransactionState nextState = inviteClientTransaction.CALLING;
+            inviteClientTransaction.setState(nextState);
+        }
+    }
+    
+    class StateCalling extends InviteClientTransactionState {
+        public StateCalling(String id, InviteClientTransaction inviteClientTransaction, Logger logger) {
+            super(id, inviteClientTransaction, logger);
+        }
+
+        @Override
+        public void timerAFires() {
+            InviteClientTransactionState nextState = inviteClientTransaction.CALLING;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.sendRetrans();
+        }
+        
+        @Override
+        public void timerBFires() {
+            timerBFiresOrTransportError();
+        }
+        
+        @Override
+        public void transportError() {
+            timerBFiresOrTransportError();
+        }
+        
+        private void timerBFiresOrTransportError() {
+            InviteClientTransactionState nextState = inviteClientTransaction.TERMINATED;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.transactionUser.transactionTimeout(
+                    inviteClientTransaction);
+        }
+        
+        @Override
+        public void received2xx() {
+            InviteClientTransactionState nextState = inviteClientTransaction.TERMINATED;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.transactionUser.successResponseReceived(
+                    inviteClientTransaction.getLastResponse(), inviteClientTransaction);
+        }
+        
+        @Override
+        public void received1xx() {
+            InviteClientTransactionState nextState = inviteClientTransaction.PROCEEDING;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.transactionUser.provResponseReceived(
+                    inviteClientTransaction.getLastResponse(), inviteClientTransaction);
+        }
+        
+        @Override
+        public void received300To699() {
+            InviteClientTransactionState nextState = inviteClientTransaction.COMPLETED;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.createAndSendAck();
+            inviteClientTransaction.transactionUser.errResponseReceived(
+                    inviteClientTransaction.getLastResponse());
+        }
+    }
+    
+    class StateProceeding extends InviteClientTransactionState {
+        public StateProceeding(String id, InviteClientTransaction inviteClientTransaction, Logger logger) {
+            super(id, inviteClientTransaction, logger);
+        }
+
+        @Override
+        public void received1xx() {
+            InviteClientTransactionState nextState = inviteClientTransaction.PROCEEDING;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.transactionUser.provResponseReceived(
+                    inviteClientTransaction.getLastResponse(), inviteClientTransaction);
+        }
+        
+        @Override
+        public void received2xx() {
+            InviteClientTransactionState nextState = inviteClientTransaction.TERMINATED;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.transactionUser.successResponseReceived(
+                    inviteClientTransaction.getLastResponse(), inviteClientTransaction);
+        }
+        
+        @Override
+        public void received300To699() {
+            InviteClientTransactionState nextState = inviteClientTransaction.COMPLETED;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.createAndSendAck();
+            inviteClientTransaction.transactionUser.errResponseReceived(
+                    inviteClientTransaction.getLastResponse());
+        }
+    }
+    
+    class StateCompleted extends InviteClientTransactionState {
+        public StateCompleted(String id, InviteClientTransaction inviteClientTransaction, Logger logger) {
+            super(id, inviteClientTransaction, logger);
+            int delay = 0;
+            if (RFC3261.TRANSPORT_UDP.equals(inviteClientTransaction.transport)) {
+                delay = RFC3261.TIMER_INVITE_CLIENT_TRANSACTION;
+            }
+            inviteClientTransaction.timer.schedule(inviteClientTransaction.new TimerD(), delay);
+        }
+
+        @Override
+        public void received300To699() {
+            InviteClientTransactionState nextState = inviteClientTransaction.COMPLETED;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.sendAck();
+        }
+        
+        @Override
+        public void transportError() {
+            InviteClientTransactionState nextState = inviteClientTransaction.TERMINATED;
+            inviteClientTransaction.setState(nextState);
+            inviteClientTransaction.transactionUser.transactionTransportError();
+        }
+        
+        @Override
+        public void timerDFires() {
+            InviteClientTransactionState nextState = inviteClientTransaction.TERMINATED;
+            inviteClientTransaction.setState(nextState);
+        }
+    }
+    
+    class StateTerminated extends InviteClientTransactionState {
+        public StateTerminated(String id, InviteClientTransaction inviteClientTransaction, Logger logger) {
+            super(id, inviteClientTransaction, logger);
+        }
     }
 
 }

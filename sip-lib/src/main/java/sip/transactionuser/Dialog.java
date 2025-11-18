@@ -50,11 +50,11 @@ public class Dialog {
         this.remoteTag = remoteTag;
         this.logger = logger;
         
-        INIT = new DialogStateInit(getId(), this, logger);
+        INIT = new StateInit(getId(), this, logger);
         state = INIT;
-        EARLY = new DialogStateEarly(getId(), this, logger);
-        CONFIRMED = new DialogStateConfirmed(getId(), this, logger);
-        TERMINATED = new DialogStateTerminated(getId(), this, logger);
+        EARLY = new StateEarly(getId(), this, logger);
+        CONFIRMED = new StateConfirmed(getId(), this, logger);
+        TERMINATED = new StateTerminated(getId(), this, logger);
         
         localCSeq = EMPTY_CSEQ;
         remoteCSeq = EMPTY_CSEQ;
@@ -237,6 +237,140 @@ public class Dialog {
     public DialogState getState() {
         return state;
     }
+
+    // ========== Inner State Classes ==========
     
+    public abstract class DialogState extends sip.AbstractState {
+        protected Dialog dialog;
+
+        public DialogState(String id, Dialog dialog, Logger logger) {
+            super(id, logger);
+            this.dialog = dialog;
+        }
+        
+        public void receivedOrSent101To199() {}
+        public void receivedOrSent2xx() {}
+        public void receivedOrSent300To699() {}
+        public void receivedOrSentBye() {}
+    }
+    
+    class StateInit extends DialogState {
+        public StateInit(String id, Dialog dialog, Logger logger) {
+            super(id, dialog, logger);
+        }
+
+        @Override
+        public void receivedOrSent101To199() {
+            DialogState nextState = dialog.EARLY;
+            dialog.setState(nextState);
+        }
+        
+        @Override
+        public void receivedOrSent2xx() {
+            DialogState nextState = dialog.CONFIRMED;
+            dialog.setState(nextState);
+        }
+        
+        @Override
+        public void receivedOrSent300To699() {
+            DialogState nextState = dialog.TERMINATED;
+            dialog.setState(nextState);
+        }
+        
+        @Override
+        public void receivedOrSentBye() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+    }
+    
+    class StateEarly extends DialogState {
+        public StateEarly(String id, Dialog dialog, Logger logger) {
+            super(id, dialog, logger);
+        }
+        
+        @Override
+        public void receivedOrSent101To199() {
+            DialogState nextState = dialog.EARLY;
+            dialog.setState(nextState);
+        }
+        
+        @Override
+        public void receivedOrSent2xx() {
+            DialogState nextState = dialog.CONFIRMED;
+            dialog.setState(nextState);
+        }
+        
+        @Override
+        public void receivedOrSent300To699() {
+            DialogState nextState = dialog.TERMINATED;
+            dialog.setState(nextState);
+        }
+        
+        @Override
+        public void receivedOrSentBye() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+    }
+    
+    class StateConfirmed extends DialogState {
+        public StateConfirmed(String id, Dialog dialog, Logger logger) {
+            super(id, dialog, logger);
+        }
+
+        @Override
+        public void receivedOrSent101To199() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+
+        @Override
+        public void receivedOrSent2xx() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+
+        @Override
+        public void receivedOrSent300To699() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+
+        @Override
+        public void receivedOrSentBye() {
+            DialogState nextState = dialog.TERMINATED;
+            dialog.setState(nextState);
+        }
+    }
+    
+    class StateTerminated extends DialogState {
+        public StateTerminated(String id, Dialog dialog, Logger logger) {
+            super(id, dialog, logger);
+        }
+
+        @Override
+        public void receivedOrSent101To199() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+        
+        @Override
+        public void receivedOrSent2xx() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+        
+        @Override
+        public void receivedOrSent300To699() {
+            logger.error(id + " invalid transition");
+            throw new IllegalStateException();
+        }
+        
+        @Override
+        public void receivedOrSentBye() {
+            //ignore bye retransmissions
+        }
+    }
     
 }

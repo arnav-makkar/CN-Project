@@ -2,7 +2,7 @@
 <config xmlns="http://sip.softphone.net"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://sip.softphone.net config.xsd">
-  <ipAddress>192.168.1.197</ipAddress>
+  <ipAddress>127.0.0.1</ipAddress>
   <userPart>alice</userPart>
   <domain>local</domain>
   <password>password</password>
@@ -13,7 +13,7 @@
   <mediaMode>captureAndPlayback</mediaMode>
   <mediaDebug>false</mediaDebug>
   <mediaFile></mediaFile>
-  <enableSRTP>false</enableSRTP>
+  <enableSRTP>true</enableSRTP>
   <enableTLS>false</enableTLS>
 </config>
 

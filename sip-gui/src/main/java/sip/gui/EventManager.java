@@ -33,7 +33,7 @@ import sip.transport.SipMessage;
 import sip.transport.SipRequest;
 import sip.transport.SipResponse;
 
-public class EventManager implements SipListener, MainFrameListener,
+public class EventManager implements SipListener, MainFrame.MainFrameListener,
         CallFrameListener, ActionListener {
 
     public static final String PEERS_URL = "http://peers.sourceforge.net/";

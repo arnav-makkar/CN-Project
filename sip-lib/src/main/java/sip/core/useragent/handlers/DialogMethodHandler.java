@@ -249,7 +249,7 @@ public abstract class DialogMethodHandler extends MethodHandler {
             for (Dialog dialog : dialogs) {
                 String remoteUri = dialog.getRemoteUri();
                 if (remoteUri.equals(toUri) &&
-                        !dialog.CONFIRMED.equals(dialog.getState())) {
+                        dialog.getState() != dialog.CONFIRMED) {
                     dialog.receivedOrSentBye();
                     purgedDialogs.add(dialog);
                 }

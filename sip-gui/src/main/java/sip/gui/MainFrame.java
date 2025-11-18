@@ -561,7 +561,7 @@ public class MainFrame implements WindowListener, ActionListener {
             @Override
             public void run() {
                 if (chatPanel != null && currentState == MainFrameState.IN_CALL) {
-                    ChatMessage message = new ChatMessage(sender, text, attachment, 
+                    ChatPanel.ChatMessage message = new ChatPanel.ChatMessage(sender, text, attachment, 
                             attachmentName, null, isSent);
                     chatPanel.addMessage(message);
                 }
@@ -668,6 +668,14 @@ public class MainFrame implements WindowListener, ActionListener {
         } catch (SipUriSyntaxException e) {
             return fallbackUri;
         }
+    }
+    
+    // ========== Inner Interface ==========
+    
+    public interface MainFrameListener {
+        void callClicked(String callee);
+        void windowClosed();
+        void register();
     }
 
 }

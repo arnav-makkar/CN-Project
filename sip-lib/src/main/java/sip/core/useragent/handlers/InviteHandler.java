@@ -7,12 +7,21 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
+import java.security.MessageDigest;
 import java.security.PrivilegedAction;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Set;
 import java.util.Timer;
+import java.util.concurrent.ConcurrentHashMap;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import sip.Logger;
 import sip.media.MediaManager;
@@ -51,10 +60,16 @@ public class InviteHandler extends DialogMethodHandler
         implements ServerTransactionUser, ClientTransactionUser {
 
     public static final int TIMEOUT = 100;
+    public static final String SIP_COOKIE_HEADER = "X-SIP-Cookie";
+    public static final String SIP_SET_COOKIE_HEADER = "X-SIP-Set-Cookie";
+    private static final long SIP_COOKIE_TTL_MS = 60_000L;
 
     private MediaDestination mediaDestination;
     private Timer ackTimer;
     private boolean initialIncomingInvite;
+    private final byte[] cookieSecret;
+    private final SecureRandom secureRandom;
+    private final Set<String> cookieChallengedCallIds;
     
     public InviteHandler(UserAgent userAgent,
             DialogManager dialogManager,
@@ -64,6 +79,10 @@ public class InviteHandler extends DialogMethodHandler
                 logger);
         ackTimer = new Timer(getClass().getSimpleName() + " Ack "
                 + Timer.class.getSimpleName());
+        secureRandom = new SecureRandom();
+        cookieSecret = new byte[32];
+        secureRandom.nextBytes(cookieSecret);
+        cookieChallengedCallIds = ConcurrentHashMap.newKeySet();
     }
     
     
@@ -72,6 +91,9 @@ public class InviteHandler extends DialogMethodHandler
     //////////////////////////////////////////////////////////
 
     public void handleInitialInvite(SipRequest sipRequest) {
+        if (shouldChallengeWithCookie(sipRequest)) {
+            return;
+        }
         initialIncomingInvite = true;
         //generate 180 Ringing
         SipResponse sipResponse = buildGenericResponse(sipRequest,
@@ -417,12 +439,16 @@ public class InviteHandler extends DialogMethodHandler
         if (guiClosedCallIds.contains(callId)) {
             guiClosedCallIds.remove(callId);
         }
+        cookieChallengedCallIds.remove(callId);
         userAgent.getMediaManager().setDatagramSocket(null);
     }
 
     public void provResponseReceived(SipResponse sipResponse, Transaction transaction) {
         // dialog may have already been created if a previous 1xx has
         // already been received
+        if (handleCookieSetHeader(sipResponse, transaction)) {
+            return;
+        }
         Dialog dialog = dialogManager.getDialog(sipResponse);
         boolean isFirstProvRespWithToTag = false;
         if (dialog == null) {
@@ -508,6 +534,7 @@ public class InviteHandler extends DialogMethodHandler
         }
         dialog = buildOrUpdateDialogForUac(sipResponse, transaction);
         
+        cookieChallengedCallIds.remove(Utils.getMessageCallId(sipResponse));
         SipListener sipListener = userAgent.getSipListener();
         if (sipListener != null) {
             sipListener.calleePickup(sipResponse);
@@ -672,5 +699,110 @@ public class InviteHandler extends DialogMethodHandler
         
     }
     
+    private boolean shouldChallengeWithCookie(SipRequest sipRequest) {
+        SipHeaders headers = sipRequest.getSipHeaders();
+        SipHeaderFieldValue cookieHeader =
+                headers.get(new SipHeaderFieldName(SIP_COOKIE_HEADER));
+        if (cookieHeader == null || !isCookieValid(cookieHeader.getValue(), sipRequest)) {
+            issueCookieChallenge(sipRequest);
+            return true;
+        }
+        return false;
+    }
 
+    private void issueCookieChallenge(SipRequest sipRequest) {
+        String cookie = generateCookieValue(sipRequest);
+        SipResponse response = RequestManager.generateResponse(sipRequest, null,
+                RFC3261.CODE_100_TRYING, "Trying");
+        response.getSipHeaders().add(new SipHeaderFieldName(SIP_SET_COOKIE_HEADER),
+                new SipHeaderFieldValue(cookie));
+        try {
+            transportManager.sendResponse(response);
+        } catch (IOException e) {
+            logger.error("cannot send SIP cookie challenge", e);
+        }
+    }
+
+    private String generateCookieValue(SipRequest sipRequest) {
+        long timestamp = System.currentTimeMillis();
+        String callId = getHeaderValue(sipRequest, RFC3261.HDR_CALLID);
+        String from = getHeaderValue(sipRequest, RFC3261.HDR_FROM);
+        String payload = callId + "|" + from + "|" + timestamp;
+        byte[] signature = hmac(payload.getBytes(StandardCharsets.UTF_8));
+        String encodedSignature = Base64.getEncoder().withoutPadding()
+                .encodeToString(signature);
+        return timestamp + ":" + encodedSignature;
+    }
+
+    private boolean isCookieValid(String cookie, SipRequest sipRequest) {
+        if (cookie == null || cookie.isEmpty()) {
+            return false;
+        }
+        String[] parts = cookie.split(":");
+        if (parts.length != 2) {
+            return false;
+        }
+        long timestamp;
+        try {
+            timestamp = Long.parseLong(parts[0]);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        long age = System.currentTimeMillis() - timestamp;
+        if (age < 0 || age > SIP_COOKIE_TTL_MS) {
+            return false;
+        }
+        byte[] providedSignature;
+        try {
+            providedSignature = Base64.getDecoder().decode(parts[1]);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        String callId = getHeaderValue(sipRequest, RFC3261.HDR_CALLID);
+        String from = getHeaderValue(sipRequest, RFC3261.HDR_FROM);
+        String payload = callId + "|" + from + "|" + timestamp;
+        byte[] expected = hmac(payload.getBytes(StandardCharsets.UTF_8));
+        return MessageDigest.isEqual(expected, providedSignature);
+    }
+
+    private byte[] hmac(byte[] data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(cookieSecret, "HmacSHA256"));
+            return mac.doFinal(data);
+        } catch (Exception e) {
+            logger.error("cannot compute cookie signature", e);
+            byte[] fallback = new byte[32];
+            secureRandom.nextBytes(fallback);
+            return fallback;
+        }
+    }
+
+    private String getHeaderValue(SipRequest sipRequest, String headerName) {
+        SipHeaderFieldValue value =
+                sipRequest.getSipHeaders().get(new SipHeaderFieldName(headerName));
+        return value != null ? value.getValue() : "";
+    }
+
+    private boolean handleCookieSetHeader(SipResponse sipResponse, Transaction transaction) {
+        SipHeaderFieldValue cookieValue = sipResponse.getSipHeaders()
+                .get(new SipHeaderFieldName(SIP_SET_COOKIE_HEADER));
+        if (cookieValue == null || !(transaction instanceof InviteClientTransaction)) {
+            return false;
+        }
+        InviteClientTransaction inviteClientTransaction = (InviteClientTransaction) transaction;
+        SipRequest originalRequest = inviteClientTransaction.getRequest();
+        if (originalRequest.getSipHeaders()
+                .get(new SipHeaderFieldName(SIP_COOKIE_HEADER)) != null) {
+            return false;
+        }
+        String callId = Utils.getMessageCallId(sipResponse);
+        if (cookieChallengedCallIds.contains(callId)) {
+            return true;
+        }
+        cookieChallengedCallIds.add(callId);
+        userAgent.getUac().retryInviteWithCookie(originalRequest, cookieValue.getValue());
+        return true;
+    }
+    
 }

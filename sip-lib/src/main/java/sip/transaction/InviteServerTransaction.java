@@ -38,16 +38,12 @@ public class InviteServerTransaction extends InviteTransaction
             TransportManager transportManager, Logger logger) {
         super(branchId, timer, transportManager, transactionManager, logger);
         
-        INIT = new InviteServerTransactionStateInit(getId(), this, logger);
+        INIT = new StateInit(getId(), this, logger);
         state = INIT;
-        PROCEEDING = new InviteServerTransactionStateProceeding(getId(), this,
-                logger);
-        COMPLETED = new InviteServerTransactionStateCompleted(getId(), this,
-                logger);
-        CONFIRMED = new InviteServerTransactionStateConfirmed(getId(), this,
-                logger);
-        TERMINATED = new InviteServerTransactionStateTerminated(getId(), this,
-                logger);
+        PROCEEDING = new StateProceeding(getId(), this, logger);
+        COMPLETED = new StateCompleted(getId(), this, logger);
+        CONFIRMED = new StateConfirmed(getId(), this, logger);
+        TERMINATED = new StateTerminated(getId(), this, logger);
         
         this.request = sipRequest;
         this.port = port;
@@ -161,5 +157,152 @@ public class InviteServerTransaction extends InviteTransaction
             state.timerIFires();
         }
     }
+
+    // ========== Inner State Classes ==========
     
+    abstract class InviteServerTransactionState extends sip.AbstractState {
+        protected InviteServerTransaction inviteServerTransaction;
+        
+        public InviteServerTransactionState(String id,
+                InviteServerTransaction inviteServerTransaction, Logger logger) {
+            super(id, logger);
+            this.inviteServerTransaction = inviteServerTransaction;
+        }
+
+        public void start() {}
+        public void receivedInvite() {}
+        public void received101To199() {}
+        public void transportError() {}
+        public void received2xx() {}
+        public void received300To699() {}
+        public void timerGFires() {}
+        public void timerHFiresOrTransportError() {}
+        public void receivedAck() {}
+        public void timerIFires() {}
+    }
+    
+    class StateInit extends InviteServerTransactionState {
+        public StateInit(String id, InviteServerTransaction inviteServerTransaction, Logger logger) {
+            super(id, inviteServerTransaction, logger);
+        }
+
+        @Override
+        public void start() {
+            InviteServerTransactionState nextState = inviteServerTransaction.PROCEEDING;
+            inviteServerTransaction.setState(nextState);
+        }
+    }
+    
+    class StateProceeding extends InviteServerTransactionState {
+        public StateProceeding(String id, InviteServerTransaction inviteServerTransaction, Logger logger) {
+            super(id, inviteServerTransaction, logger);
+        }
+
+        @Override
+        public void received101To199() {
+            InviteServerTransactionState nextState = inviteServerTransaction.PROCEEDING;
+            inviteServerTransaction.setState(nextState);
+            inviteServerTransaction.sendLastResponse();
+        }
+        
+        @Override
+        public void transportError() {
+            InviteServerTransactionState nextState = inviteServerTransaction.TERMINATED;
+            inviteServerTransaction.setState(nextState);
+        }
+        
+        @Override
+        public void received2xx() {
+            InviteServerTransactionState nextState = inviteServerTransaction.TERMINATED;
+            inviteServerTransaction.setState(nextState);
+            inviteServerTransaction.sendLastResponse();
+        }
+        
+        @Override
+        public void received300To699() {
+            InviteServerTransactionState nextState = inviteServerTransaction.COMPLETED;
+            inviteServerTransaction.setState(nextState);
+            inviteServerTransaction.sendLastResponse();
+            if (RFC3261.TRANSPORT_UDP.equals(inviteServerTransaction.transport)) {
+                inviteServerTransaction.timer.schedule(
+                        inviteServerTransaction.new TimerG(), RFC3261.TIMER_T1);
+            }
+            inviteServerTransaction.timer.schedule(
+                    inviteServerTransaction.new TimerH(), 64 * RFC3261.TIMER_T1);
+        }
+        
+        @Override
+        public void receivedInvite() {
+            InviteServerTransactionState nextState = inviteServerTransaction.PROCEEDING;
+            inviteServerTransaction.setState(nextState);
+        }
+    }
+    
+    class StateCompleted extends InviteServerTransactionState {
+        public StateCompleted(String id, InviteServerTransaction inviteServerTransaction, Logger logger) {
+            super(id, inviteServerTransaction, logger);
+        }
+
+        @Override
+        public void timerGFires() {
+            InviteServerTransactionState nextState = inviteServerTransaction.COMPLETED;
+            inviteServerTransaction.setState(nextState);
+            inviteServerTransaction.sendLastResponse();
+            long delay = (long)Math.pow(2,
+                    ++inviteServerTransaction.nbRetrans) * RFC3261.TIMER_T1;
+            inviteServerTransaction.timer.schedule(
+                    inviteServerTransaction.new TimerG(),
+                    Math.min(delay, RFC3261.TIMER_T2));
+        }
+        
+        @Override
+        public void timerHFiresOrTransportError() {
+            InviteServerTransactionState nextState = inviteServerTransaction.TERMINATED;
+            inviteServerTransaction.setState(nextState);
+            inviteServerTransaction.serverTransactionUser.transactionFailure();
+        }
+        
+        @Override
+        public void receivedAck() {
+            InviteServerTransactionState nextState = inviteServerTransaction.CONFIRMED;
+            inviteServerTransaction.setState(nextState);
+            int delay;
+            if (RFC3261.TRANSPORT_UDP.equals(inviteServerTransaction.transport)) {
+                delay = RFC3261.TIMER_T4;
+            } else {
+                delay = 0;
+            }
+            inviteServerTransaction.timer.schedule(
+                    inviteServerTransaction.new TimerI(), delay);
+        }
+        
+        @Override
+        public void receivedInvite() {
+            InviteServerTransactionState nextState = inviteServerTransaction.COMPLETED;
+            inviteServerTransaction.setState(nextState);
+            inviteServerTransaction.sendLastResponse();
+        }
+    }
+    
+    class StateConfirmed extends InviteServerTransactionState {
+        public StateConfirmed(String id, InviteServerTransaction inviteServerTransaction, Logger logger) {
+            super(id, inviteServerTransaction, logger);
+        }
+
+        @Override
+        public void timerIFires() {
+            InviteServerTransactionState nextState = inviteServerTransaction.TERMINATED;
+            inviteServerTransaction.setState(nextState);
+            inviteServerTransaction.transactionManager.removeServerTransaction(
+                    inviteServerTransaction.branchId,
+                    inviteServerTransaction.method);
+        }
+    }
+    
+    class StateTerminated extends InviteServerTransactionState {
+        public StateTerminated(String id, InviteServerTransaction inviteServerTransaction, Logger logger) {
+            super(id, inviteServerTransaction, logger);
+        }
+    }
+
 }

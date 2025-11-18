@@ -10,6 +10,7 @@ import java.util.List;
 import sip.Logger;
 import sip.RFC3261;
 import sip.Utils;
+import sip.core.useragent.handlers.InviteHandler;
 import sip.syntaxencoding.SipHeaderFieldName;
 import sip.syntaxencoding.SipHeaderFieldValue;
 import sip.syntaxencoding.SipHeaderParamName;
@@ -22,7 +23,6 @@ import sip.transaction.Transaction;
 import sip.transaction.TransactionManager;
 import sip.transactionuser.Dialog;
 import sip.transactionuser.DialogManager;
-import sip.transactionuser.DialogState;
 import sip.transport.SipMessage;
 import sip.transport.SipRequest;
 import sip.transport.SipResponse;
@@ -117,6 +117,39 @@ public class UAC {
         return initialRequestManager.createInitialRequest(requestUri,
                 RFC3261.METHOD_INVITE, profileUri, callId);
         
+    }
+
+    public void retryInviteWithCookie(final SipRequest originalRequest, final String cookie) {
+        if (originalRequest == null || cookie == null || cookie.isEmpty()) {
+            return;
+        }
+        try {
+            initialRequestManager.createCancel(originalRequest,
+                    midDialogRequestManager, profileUri);
+        } catch (Exception e) {
+            logger.error("cannot cancel original INVITE for cookie challenge", e);
+        }
+        final SipHeaderFieldValue callIdHeader =
+                originalRequest.getSipHeaders().get(new SipHeaderFieldName(RFC3261.HDR_CALLID));
+        final String callId = callIdHeader != null ? callIdHeader.getValue() : null;
+        MessageInterceptor interceptor = new MessageInterceptor() {
+            @Override
+            public void postProcess(SipMessage sipMessage) {
+                sipMessage.getSipHeaders().add(new SipHeaderFieldName(InviteHandler.SIP_COOKIE_HEADER),
+                        new SipHeaderFieldValue(cookie));
+            }
+        };
+        try {
+            initialRequestManager.createInitialRequest(
+                    originalRequest.getRequestUri().toString(),
+                    RFC3261.METHOD_INVITE,
+                    profileUri,
+                    callId,
+                    null,
+                    interceptor);
+        } catch (SipUriSyntaxException e) {
+            logger.error("cannot re-send INVITE with cookie", e);
+        }
     }
     
     SipRequest sendMessage(String toUri, String messageText, byte[] attachment,
@@ -311,11 +344,11 @@ public class UAC {
                 transactionManager.getClientTransaction(originatingRequest);
             if (clientTransaction != null) {
                 synchronized (clientTransaction) {
-                    DialogState dialogState = dialog.getState();
-                    if (dialog.EARLY.equals(dialogState)) {
+                    Dialog.DialogState dialogState = dialog.getState();
+                    if (dialogState == dialog.EARLY) {
                         initialRequestManager.createCancel(inviteWithAuth,
                                 midDialogRequestManager, profileUri);
-                    } else if (dialog.CONFIRMED.equals(dialogState)) {
+                    } else if (dialogState == dialog.CONFIRMED) {
                         // clientTransaction not yet removed
                         midDialogRequestManager.generateMidDialogRequest(
                                 dialog, RFC3261.METHOD_BYE, null);

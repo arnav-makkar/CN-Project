@@ -39,14 +39,14 @@ public class CallFrame implements ActionListener, WindowListener {
 
     CallFrame(String remoteParty, String id,
             CallFrameListener callFrameListener, Logger logger) {
-        INIT = new CallFrameStateInit(id, this, logger);
-        UAC = new CallFrameStateUac(id, this, logger);
-        UAS = new CallFrameStateUas(id, this, logger);
-        RINGING = new CallFrameStateRinging(id, this, logger);
-        SUCCESS = new CallFrameStateSuccess(id, this, logger);
-        FAILED = new CallFrameStateFailed(id, this, logger);
-        REMOTE_HANGUP = new CallFrameStateRemoteHangup(id, this, logger);
-        TERMINATED = new CallFrameStateTerminated(id, this, logger);
+        INIT = new StateInit(id, this, logger);
+        UAC = new StateUac(id, this, logger);
+        UAS = new StateUas(id, this, logger);
+        RINGING = new StateRinging(id, this, logger);
+        SUCCESS = new StateSuccess(id, this, logger);
+        FAILED = new StateFailed(id, this, logger);
+        REMOTE_HANGUP = new StateRemoteHangup(id, this, logger);
+        TERMINATED = new StateTerminated(id, this, logger);
         state = INIT;
         this.callFrameListener = callFrameListener;
         
@@ -275,6 +275,294 @@ public class CallFrame implements ActionListener, WindowListener {
 
     public CallFrameListener getCallFrameListener() {
         return callFrameListener;
+    }
+
+    // ========== Inner State Classes ==========
+    
+    abstract class CallFrameState extends sip.AbstractState {
+        protected CallFrame callFrame;
+        protected JPanel callPanel;
+
+        public CallFrameState(String id, CallFrame callFrame, Logger logger) {
+            super(id, logger);
+            this.callFrame = callFrame;
+        }
+
+        public void callClicked() {}
+        public void incomingCall() {}
+        public void calleePickup() {}
+        public void error(SipResponse sipResponse) {}
+        public void pickupClicked() {}
+        public void busyHereClicked() {}
+        public void hangupClicked() {}
+        public void remoteHangup() {}
+        public void closeClicked() {}
+        public void ringing() {}
+    }
+    
+    class StateInit extends CallFrameState {
+        public StateInit(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+        }
+
+        @Override
+        public void callClicked() {
+            callFrame.setState(callFrame.UAC);
+            JFrame frame = callFrame.getFrame();
+            callFrame.setCallPanel(callFrame.UAC.callPanel);
+            frame.setVisible(true);
+        }
+
+        @Override
+        public void incomingCall() {
+            callFrame.setState(callFrame.UAS);
+            JFrame frame = callFrame.getFrame();
+            callFrame.setCallPanel(callFrame.UAS.callPanel);
+            frame.setVisible(true);
+            frame.toFront();
+            frame.requestFocus();
+            frame.setAlwaysOnTop(true);
+            java.awt.Toolkit.getDefaultToolkit().beep();
+        }
+    }
+    
+    class StateUac extends CallFrameState {
+        public StateUac(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+            callPanel = DarkTheme.createModernPanel();
+            callPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            
+            JLabel callingLabel = DarkTheme.createTitleLabel("Calling...");
+            callPanel.add(callingLabel);
+            
+            JButton hangupButton = DarkTheme.createHangupButton("Hangup");
+            hangupButton.setActionCommand(CallFrame.HANGUP_ACTION_COMMAND);
+            hangupButton.addActionListener(callFrame);
+            callPanel.add(hangupButton);
+        }
+
+        @Override
+        public void hangupClicked() {
+            callFrame.setState(callFrame.TERMINATED);
+            callFrame.hangup();
+            callFrame.close();
+        }
+
+        @Override
+        public void calleePickup() {
+            callFrame.setState(callFrame.SUCCESS);
+            callFrame.setCallPanel(callFrame.SUCCESS.callPanel);
+            
+            if (callFrame.getCallFrameListener() instanceof EventManager) {
+                EventManager eventManager = (EventManager) callFrame.getCallFrameListener();
+                eventManager.setStatisticsForCallFrame(callFrame);
+            }
+        }
+
+        @Override
+        public void error(SipResponse sipResponse) {
+            callFrame.setState(callFrame.FAILED);
+            callFrame.setCallPanel(callFrame.FAILED.callPanel);
+            callFrame.addPageEndLabel("Reason: " + sipResponse.getReasonPhrase());
+        }
+
+        @Override
+        public void ringing() {
+            callFrame.setState(callFrame.RINGING);
+            callFrame.setCallPanel(callFrame.RINGING.callPanel);
+        }
+    }
+    
+    class StateUas extends CallFrameState {
+        public StateUas(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+            callPanel = DarkTheme.createModernPanel();
+            callPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            
+            JLabel incomingLabel = DarkTheme.createTitleLabel("📞 Incoming Call");
+            incomingLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            callPanel.add(incomingLabel);
+            
+            JPanel buttonPanel = DarkTheme.createModernPanel();
+            buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 10));
+            
+            JButton pickupButton = DarkTheme.createCallButton("Pickup");
+            pickupButton.setActionCommand(CallFrame.PICKUP_ACTION_COMMAND);
+            pickupButton.addActionListener(callFrame);
+            buttonPanel.add(pickupButton);
+            
+            JButton busyButton = DarkTheme.createHangupButton("Busy");
+            busyButton.setActionCommand(CallFrame.BUSY_HERE_ACTION_COMMAND);
+            busyButton.addActionListener(callFrame);
+            buttonPanel.add(busyButton);
+            
+            callPanel.add(buttonPanel);
+        }
+
+        @Override
+        public void pickupClicked() {
+            callFrame.setState(callFrame.SUCCESS);
+            callFrame.pickup();
+            callFrame.setCallPanel(callFrame.SUCCESS.callPanel);
+            
+            if (callFrame.getCallFrameListener() instanceof EventManager) {
+                EventManager eventManager = (EventManager) callFrame.getCallFrameListener();
+                eventManager.setStatisticsForCallFrame(callFrame);
+            }
+        }
+
+        @Override
+        public void busyHereClicked() {
+            callFrame.setState(callFrame.TERMINATED);
+            callFrame.busyHere();
+        }
+
+        @Override
+        public void remoteHangup() {
+            callFrame.setState(callFrame.REMOTE_HANGUP);
+            callFrame.setCallPanel(callFrame.REMOTE_HANGUP.callPanel);
+        }
+    }
+    
+    class StateRinging extends CallFrameState {
+        public StateRinging(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+            callPanel = DarkTheme.createModernPanel();
+            callPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            
+            JLabel ringingLabel = DarkTheme.createTitleLabel("📞 Ringing...");
+            ringingLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            callPanel.add(ringingLabel);
+            
+            JButton hangupButton = DarkTheme.createHangupButton("Hangup");
+            hangupButton.setActionCommand(CallFrame.HANGUP_ACTION_COMMAND);
+            hangupButton.addActionListener(callFrame);
+            callPanel.add(hangupButton);
+        }
+
+        @Override
+        public void hangupClicked() {
+            callFrame.setState(callFrame.TERMINATED);
+            callFrame.hangup();
+            callFrame.close();
+        }
+
+        @Override
+        public void calleePickup() {
+            callFrame.setState(callFrame.SUCCESS);
+            callFrame.setCallPanel(callFrame.SUCCESS.callPanel);
+        }
+
+        @Override
+        public void error(SipResponse sipResponse) {
+            callFrame.setState(callFrame.FAILED);
+            callFrame.setCallPanel(callFrame.FAILED.callPanel);
+            callFrame.addPageEndLabel("Reason: " + sipResponse.getReasonPhrase());
+        }
+    }
+    
+    class StateSuccess extends CallFrameState {
+        private JButton muteButton;
+        private boolean isMuted = false;
+
+        public StateSuccess(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+            callPanel = DarkTheme.createModernPanel();
+            callPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            
+            JLabel talkingLabel = DarkTheme.createTitleLabel("In Call");
+            callPanel.add(talkingLabel);
+            
+            JPanel buttonPanel = DarkTheme.createModernPanel();
+            buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 10));
+            
+            muteButton = DarkTheme.createModernButton("Mute");
+            muteButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    toggleMute();
+                }
+            });
+            buttonPanel.add(muteButton);
+            
+            JButton hangupButton = DarkTheme.createHangupButton("Hangup");
+            hangupButton.setActionCommand(CallFrame.HANGUP_ACTION_COMMAND);
+            hangupButton.addActionListener(callFrame);
+            buttonPanel.add(hangupButton);
+            
+            callPanel.add(buttonPanel);
+        }
+        
+        private void toggleMute() {
+            isMuted = !isMuted;
+            if (callFrame.getCallFrameListener() instanceof EventManager) {
+                EventManager eventManager = (EventManager) callFrame.getCallFrameListener();
+                eventManager.setMuted(isMuted);
+            }
+            muteButton.setText(isMuted ? "Unmute" : "Mute");
+        }
+
+        @Override
+        public void remoteHangup() {
+            callFrame.setState(callFrame.REMOTE_HANGUP);
+            callFrame.setCallPanel(callFrame.REMOTE_HANGUP.callPanel);
+        }
+
+        @Override
+        public void hangupClicked() {
+            callFrame.setState(callFrame.TERMINATED);
+            callFrame.hangup();
+            callFrame.close();
+        }
+    }
+    
+    class StateFailed extends CallFrameState {
+        public StateFailed(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+            callPanel = DarkTheme.createModernPanel();
+            callPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            callPanel.add(DarkTheme.createTitleLabel("Failed"));
+            JButton closeButton = DarkTheme.createModernButton("Close");
+            closeButton.setActionCommand(CallFrame.CLOSE_ACTION_COMMAND);
+            closeButton.addActionListener(callFrame);
+            callPanel.add(closeButton);
+        }
+
+        @Override
+        public void closeClicked() {
+            callFrame.setState(callFrame.TERMINATED);
+            callFrame.close();
+        }
+    }
+    
+    class StateRemoteHangup extends CallFrameState {
+        public StateRemoteHangup(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+            callPanel = DarkTheme.createModernPanel();
+            callPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 15));
+            callPanel.add(DarkTheme.createTitleLabel("Remote hangup"));
+            JButton closeButton = DarkTheme.createModernButton("Close");
+            closeButton.setActionCommand(CallFrame.CLOSE_ACTION_COMMAND);
+            closeButton.addActionListener(callFrame);
+            callPanel.add(closeButton);
+        }
+
+        @Override
+        public void closeClicked() {
+            callFrame.setState(callFrame.TERMINATED);
+            callFrame.close();
+        }
+    }
+    
+    class StateTerminated extends CallFrameState {
+        public StateTerminated(String id, CallFrame callFrame, Logger logger) {
+            super(id, callFrame, logger);
+        }
+
+        @Override
+        public void calleePickup() {
+            callFrame.hangup();
+        }
     }
 
 }

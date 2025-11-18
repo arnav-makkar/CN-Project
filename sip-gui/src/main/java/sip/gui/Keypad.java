@@ -20,6 +20,10 @@ public class Keypad extends JPanel implements ActionListener {
 
     private CallFrame callFrame;
     private KeypadListener keypadListener;
+    
+    public interface KeypadListener {
+        void keypadEvent(char c);
+    }
 
     public Keypad(CallFrame callFrame) {
         this.callFrame = callFrame;
