@@ -52,6 +52,22 @@
             margin-bottom: 3rem;
         }
 
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 2rem;
+        }
+
+        .header-left {
+            flex: 1;
+        }
+
+        .header-right {
+            text-align: right;
+            min-width: 250px;
+        }
+
         header h1 {
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
@@ -62,6 +78,43 @@
             font-size: 1.2rem;
             color: var(--text-secondary);
             max-width: 800px;
+        }
+
+        .group-info {
+            margin-bottom: 1.5rem;
+        }
+
+        .group-info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .group-info p {
+            font-size: 0.95rem;
+            margin-bottom: 0.3rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .project-links {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .project-links a {
+            display: block;
+            color: var(--accent);
+            text-decoration: none;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+        }
+
+        .project-links a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
         }
 
         section {
@@ -359,6 +412,17 @@
         }
 
 
+        @media (max-width: 968px) {
+            .header-content {
+                flex-direction: column;
+            }
+
+            .header-right {
+                text-align: left;
+                width: 100%;
+            }
+        }
+
         @media (max-width: 768px) {
             header h1 {
                 font-size: 2rem;
@@ -389,8 +453,25 @@
 <body>
     <header>
         <div class="container">
-            <h1>SIP Softphone Application</h1>
-            <p>A modern SIP softphone that layers a dark-mode GUI, live RTP analytics, basic media encryption and SIP SYN-cookie defenses on top of the upstream peers-sip stack. This document captures the idea, design, implementation details, protocol references, and the exact runbook so that the project can be evaluated or extended quickly.</p>
+            <div class="header-content">
+                <div class="header-left">
+                    <h1>SIP Softphone Application</h1>
+                    <p>A modern SIP softphone that layers a dark-mode GUI, live RTP analytics, basic media encryption and SIP SYN-cookie defenses on top of the upstream peers-sip stack. This document captures the idea, design, implementation details, protocol references, and the exact runbook so that the project can be evaluated or extended quickly.</p>
+                </div>
+                <div class="header-right">
+                    <div class="group-info">
+                        <h3>Group 16</h3>
+                        <p>Parv Goyal: 2023374</p>
+                        <p>Vansh Goyal: 2023577</p>
+                        <p>Arnav Makkar: 2023127</p>
+                        <p>Dhruv Kumar: 2023202</p>
+                    </div>
+                    <div class="project-links">
+                        <a href="#" id="githubLink">GitHub: ...</a>
+                        <a href="#" id="videoLink">Video: ...</a>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -439,7 +520,7 @@
                 </tbody>
             </table>
             <div class="highlight-box">
-                <p><strong>Design priorities</strong> drawn from <code>@README_IMPROVEMENTS copy.md</code>:</p>
+                <p><strong>Design priorities</strong>:</p>
                 <ul>
                     <li><strong>Network analytics pipeline</strong> polls shared <code>RtpStatistics</code> every second and paints color-coded indicators.</li>
                     <li><strong>Encryption controls</strong> rely on <code>SrtpCrypto</code> (AES-CTR + HMAC-SHA1) and can flip per session once key material is shared.</li>
@@ -467,111 +548,6 @@
             <p>Core SIP transactions, transport manager, SDP parsing, codecs, and RTP pipeline originate from peers-sip. We extend it via GUI hooks, analytics, and security toggles without rewriting protocol plumbing.</p>
         </section>
 
-        <section id="build-run">
-            <h2>How to Build and Run</h2>
-            
-            <h3>Prerequisites</h3>
-            <ul>
-                <li>Java 8+</li>
-                <li>Maven 3.x</li>
-                <li>Microphone & speakers (or loopback audio device)</li>
-            </ul>
-
-            <h3>Build</h3>
-            <div class="command-block">
-                <pre><code># Build everything
-mvn clean install
-
-# Or just the GUI with dependencies
-mvn -pl sip-gui -am install
-
-# Output: sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
-            </div>
-
-            <h3>Run (default configuration)</h3>
-            <div class="command-block">
-                <pre><code>java -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
-            </div>
-
-            <h3>Run with custom config directory</h3>
-            <div class="command-block">
-                <pre><code>java -Dsip.home=/path/to/config \
-     -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
-            </div>
-
-            <h3>Local Alice/Bob test (see <code>RUN.md</code>)</h3>
-            <div class="command-block">
-                <pre><code># Terminal 1
-java -Dsip.home=test-alice -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar
-
-# Terminal 2
-java -Dsip.home=test-bob   -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependencies.jar</code></pre>
-            </div>
-            <p>Enter <code>sip:bob@&lt;your-ip&gt;:5061</code> in Alice's dialer, wait for ringing, then click <strong>Pickup</strong> in Bob's window.</p>
-        </section>
-
-        <section id="configuration">
-            <h2>Configuration</h2>
-            <p><code>conf/config.xml</code> (or a custom directory referenced via <code>-Dsip.home</code>) controls SIP credentials, ports, media settings, and security toggles:</p>
-            <pre><code>&lt;config&gt;
-  &lt;!-- SIP account --&gt;
-  &lt;userPart&gt;your-username&lt;/userPart&gt;
-  &lt;domain&gt;sip.provider.com&lt;/domain&gt;
-  &lt;password&gt;your-password&lt;/password&gt;
-  
-  &lt;!-- Network --&gt;
-  &lt;ipAddress&gt;192.168.1.10&lt;/ipAddress&gt;
-  &lt;sipPort&gt;5060&lt;/sipPort&gt;
-  &lt;rtpPort&gt;8000&lt;/rtpPort&gt;
-  
-  &lt;!-- Media --&gt;
-  &lt;mediaMode&gt;captureAndPlayback&lt;/mediaMode&gt;
-  &lt;mediaDebug&gt;false&lt;/mediaDebug&gt;
-  
-  &lt;!-- Security --&gt;
-  &lt;enableSRTP&gt;false&lt;/enableSRTP&gt;
-  &lt;enableTLS&gt;false&lt;/enableTLS&gt; &lt;!-- placeholder; TLS transport not yet implemented --&gt;
-&lt;/config&gt;</code></pre>
-            <p><strong>Key options:</strong></p>
-            <ul>
-                <li><code>mediaMode</code>: <code>captureAndPlayback</code>, <code>echo</code>, <code>file</code>, or <code>none</code>.</li>
-                <li><code>enableSRTP</code>: toggles SRTP payload protection (requires shared keys).</li>
-                <li><code>enableTLS</code>: reserved for future TLS transport work.</li>
-            </ul>
-        </section>
-
-        <section id="usage">
-            <h2>Usage Guide</h2>
-            <ol>
-                <li>Launch the GUI (Alice/Bob as needed).</li>
-                <li>Ensure registration succeeds (status label shows success).</li>
-                <li>Enter a SIP URI (<code>sip:bob@192.168.1.50:5061</code>) and press <strong>Call</strong>.</li>
-                <li>Watch ringing/connected states; mute/hangup controls appear automatically.</li>
-                <li>Observe live metrics in <code>CallStatisticsPanel</code> and send chat messages or attachments from the right pane.</li>
-                <li>Click <strong>Hangup</strong> to terminate the dialog.</li>
-            </ol>
-            <div class="highlight-box">
-                <p><strong>Quality indicators</strong></p>
-                <ul>
-                    <li>Packet loss: &lt;1 % 🟢, 1‑5 % 🟡, &gt;5 % 🔴.</li>
-                    <li>Latency: &lt;100 ms 🟢, 100‑200 ms 🟡, &gt;200 ms 🔴.</li>
-                </ul>
-            </div>
-        </section>
-
-        <section id="structure">
-            <h2>Project Structure</h2>
-            <pre><code>CN-Project/
-├── conf/                # Shared config & schema
-├── sip-lib/             # peers-sip core + media, RTP, security extensions
-│   ├── media/           # Capture, encoders, MediaManager
-│   ├── rtp/             # RtpSession, RtpStatistics, SrtpCrypto
-│   └── core/...         # Transactions, dialogs, transport
-├── sip-gui/             # Swing application (MainFrame, ChatPanel, analytics)
-└── sip-javaxsound/      # Java Sound bridge (capture/playback)</code></pre>
-            <p>Each module is a Maven subproject; the root <code>pom.xml</code> orchestrates builds and dependency wiring.</p>
-        </section>
-
         <section id="tools">
             <h2>Tools & Technologies</h2>
             <ul>
@@ -584,7 +560,7 @@ java -Dsip.home=test-bob   -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependenci
         </section>
 
         <section id="protocols">
-            <h2>Protocol Reference (from <code>PROTOCOLS.md</code>)</h2>
+            <h2>Protocol Reference</h2>
             <table>
                 <thead>
                     <tr>
@@ -670,7 +646,7 @@ java -Dsip.home=test-bob   -jar sip-gui/target/sip-gui-1.0.0-jar-with-dependenci
         </section>
 
         <section id="screenshots">
-            <h2>Screenshots</h2>
+            <h2>Visual Documentation</h2>
             <div class="image-gallery">
                 <div class="image-item">
                     <img src="img/before_call.png" alt="Before Call">
